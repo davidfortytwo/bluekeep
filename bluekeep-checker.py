@@ -1,5 +1,9 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Author: David Espejo (Fortytwo Security)
 import argparse
 import socket
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def check_bluekeep_vuln(target_ip):
     try:
@@ -10,14 +14,21 @@ def check_bluekeep_vuln(target_ip):
         sock.send(pre_auth_pkt)
         data = sock.recv(1024)
         if b"\x03\x00\x00\x0c" in data:
-            print(f"[+] {target_ip} is likely VULNERABLE to BlueKeep!")
+            return f"[+] {target_ip} is likely VULNERABLE to BlueKeep!"
         else:
-            print(f"[-] {target_ip} is likely patched :(")
+            return f"[-] {target_ip} is likely patched :("
     except:
-        print(f"[-] {target_ip} is either not up or not vulnerable")
+        return f"[-] {target_ip} is either not up or not vulnerable"
+
+def scan_ips(targets):
+    with ThreadPoolExecutor() as executor:
+        futures = [executor.submit(check_bluekeep_vuln, target) for target in targets]
+
+        for future in as_completed(futures):
+            print(future.result())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--target", required=True, help="Target IP address")
+    parser.add_argument("-t", "--targets", required=True, nargs='+', help="List of target IP addresses separated by space")
     args = parser.parse_args()
-    check_bluekeep_vuln(args.target)
+    scan_ips(args.targets)
